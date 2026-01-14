@@ -1,11 +1,17 @@
 package tsutsu.k2_td2.model;
 
+import java.util.Objects;
+
 public class Ingredient {
     int id;
     String name;
     Double price;
     CategoryEnum category;
     Dish dish;
+
+    public String getDishName() {
+        return dish == null ? null : dish.getName();
+    }
 
     public Ingredient(int id, String name, Double price, CategoryEnum category, Dish dish) {
         this.id = id;
@@ -56,13 +62,28 @@ public class Ingredient {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Ingredient that = (Ingredient) o;
+        return id == that.id;
+    }
+
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, price, category, dish);
+    }
+
+    @Override
     public String toString() {
         return "Ingredient{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", price=" + price +
                 ", category=" + category +
-                ", dish=" + dish +
+                ", dishId=" + (dish != null ? dish.getId() : null) +
                 '}';
     }
+
 }

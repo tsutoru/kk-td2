@@ -1,19 +1,37 @@
 package tsutsu.k2_td2.model;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Dish {
-    int id;
-    String name;
-    DishtypeEnum dishtype;
-    List<Ingredient> ingredients;
+    private int id;
+    private String name;
+    private DishtypeEnum dishtype;
+    private Double price;
+    private List<Ingredient> ingredients;
 
-    public Dish(List<Ingredient> ingredients, DishtypeEnum dishtype, String name, int id) {
+
+    public Double getDishCost(){
+        return ingredients == null ? null : ingredients.stream()
+                .mapToDouble(Ingredient::getPrice)
+                .sum();
+    }
+    public Double getGrossMargin(){
+        if (price <= 0) {
+            throw new RuntimeException("Veuillez mettre à jour le prix du plat svp !");
+        }
+
+        return price - getDishCost();
+    }
+
+    public Dish(List<Ingredient> ingredients, DishtypeEnum dishtype, String name,Double price ,int id) {
         this.ingredients = ingredients;
         this.dishtype = dishtype;
         this.name = name;
+        this.price = price;
         this.id = id;
     }
+
 
     public int getId() {
         return id;
@@ -29,6 +47,14 @@ public class Dish {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 
     public DishtypeEnum getDishtype() {
@@ -48,11 +74,26 @@ public class Dish {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Dish dish = (Dish) o;
+        return id == dish.id;
+    }
+
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, dishtype, ingredients);
+    }
+
+    @Override
     public String toString() {
         return "Dish{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", dishtype=" + dishtype +
+                ", price=" + price +
                 ", ingredients=" + ingredients +
                 '}';
     }
