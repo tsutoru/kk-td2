@@ -61,12 +61,14 @@ public class DataRetriever {
     public List<Ingredient> findIngredientByDishId(Integer dishId, int limit, int offset) throws Exception {
         List<Ingredient> ingredients = new ArrayList<>();
 
-        String query =
-                "SELECT i.id, i.name, i.price, i.category " +
-                        "FROM dish_ingredient di " +
-                        "JOIN ingredient i ON i.id = di.id_ingredient " +
-                        "WHERE di.id_dish = ? " +
-                        "LIMIT ? OFFSET ?";
+        String query = """
+        SELECT i.id, i.name, i.price, i.category
+        FROM dish_ingredient di
+        JOIN ingredient i ON i.id = di.id_ingredient
+        WHERE di.id_dish = ?
+        ORDER BY i.id
+        LIMIT ? OFFSET ?;
+    """;
 
         try (Connection connection = DbConnection.getDbConnection();
              PreparedStatement ps = connection.prepareStatement(query)) {
@@ -77,10 +79,13 @@ public class DataRetriever {
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    java.math.BigDecimal p = rs.getBigDecimal("price");
+                    Double price = (p == null) ? null : p.doubleValue();
+
                     Ingredient ingredient = new Ingredient(
                             rs.getInt("id"),
                             rs.getString("name"),
-                            rs.getDouble("price"),
+                            price,
                             CategoryEnum.valueOf(rs.getString("category"))
                     );
                     ingredients.add(ingredient);
@@ -91,80 +96,97 @@ public class DataRetriever {
     }
 
 
+
     public Ingredient createIngredient(Ingredient ingredient) throws Exception {
-        String checkQuery = "SELECT id FROM ingredient WHERE name = ?";
-        String insertQuery = "INSERT INTO ingredient (name, price, category) VALUES (?, ?, ?) RETURNING id";
 
-        try (Connection connection = DbConnection.getDbConnection()) {
+        String query = """
+        INSERT INTO ingredient (name, price, category)
+        VALUES (?, ?, ?)
+        ON CONFLICT (name) DO UPDATE
+          SET price = EXCLUDED.price,
+              category = EXCLUDED.category
+        RETURNING id;
+    """;
 
-            try (PreparedStatement checkPs = connection.prepareStatement(checkQuery)) {
-                checkPs.setString(1, ingredient.getName());
-                ResultSet rs = checkPs.executeQuery();
-                if (rs.next()) {
-                    ingredient.setId(rs.getInt("id"));
-                    return ingredient;
-                }
+        try (Connection connection = DbConnection.getDbConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setString(1, ingredient.getName());
+
+            if (ingredient.getPrice() == null)
+                ps.setNull(2, Types.NUMERIC);
+            else
+                ps.setBigDecimal(2, java.math.BigDecimal.valueOf(ingredient.getPrice()));
+
+            // 🔥 ENUM Postgres → Types.OTHER
+            ps.setObject(3, ingredient.getCategory().name(), Types.OTHER);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) ingredient.setId(rs.getInt("id"));
+                else throw new Exception("createIngredient: aucun id retourné");
             }
 
-            try (PreparedStatement insertPs = connection.prepareStatement(insertQuery)) {
-                insertPs.setString(1, ingredient.getName());
-                insertPs.setDouble(2, ingredient.getPrice());
-                insertPs.setString(3, ingredient.getCategory().name());
-
-                ResultSet rs = insertPs.executeQuery();
-                if (rs.next()) {
-                    ingredient.setId(rs.getInt("id"));
-                }
-            }
             return ingredient;
         }
     }
 
 
+
+
     public Dish saveDish(Dish dish) throws Exception {
-            String insertQuery =
-                    "INSERT INTO dish (name, dish_type, selling_price) VALUES (?, ?, ?) RETURNING id";
-            String updateQuery =
-                    "UPDATE dish SET name = ?, dish_type = ?, selling_price = ? WHERE id = ?";
 
-            try (Connection connection = DbConnection.getDbConnection()) {
+        String insertQuery =
+                "INSERT INTO dish (name, dish_type, selling_price) VALUES (?, ?, ?) RETURNING id";
+        String updateQuery =
+                "UPDATE dish SET name = ?, dish_type = ?, selling_price = ? WHERE id = ?";
 
-                Integer id = dish.getId();
-                boolean isUpdate = (id != null);
+        Integer id = dish.getId();
 
-                if (isUpdate) {
-                    try (PreparedStatement ps = connection.prepareStatement(updateQuery)) {
-                        ps.setString(1, dish.getName());
-                        ps.setObject(2, dish.getDishtype().name(), java.sql.Types.OTHER);
-                        if (dish.getPrice() == null) ps.setNull(3, java.sql.Types.NUMERIC);
-                        else ps.setBigDecimal(3, java.math.BigDecimal.valueOf(dish.getPrice()));
+        boolean shouldUpdate = false;
+        if (id != null && id > 0) {
+            // Vérifie si l'id existe vraiment en base
+            Dish existing = findDishById(id);
+            shouldUpdate = (existing != null);
+        }
 
-                        ps.setInt(4, id);
+        try (Connection connection = DbConnection.getDbConnection()) {
 
-                        int updated = ps.executeUpdate();
-                        if (updated == 0) {
-                            throw new Exception("UPDATE 0 ligne: id=" + id + " n'existe pas.");
-                        }
-                    }
-                } else {
-                    try (PreparedStatement ps = connection.prepareStatement(insertQuery)) {
-                        ps.setString(1, dish.getName());
-                        ps.setObject(2, dish.getDishtype().name(), java.sql.Types.OTHER);
+            if (shouldUpdate) {
+                try (PreparedStatement ps = connection.prepareStatement(updateQuery)) {
+                    ps.setString(1, dish.getName());
+                    ps.setObject(2, dish.getDishtype().name(), java.sql.Types.OTHER); // enum PG safe
 
-                        if (dish.getPrice() == null) ps.setNull(3, java.sql.Types.NUMERIC);
-                        else ps.setBigDecimal(3, java.math.BigDecimal.valueOf(dish.getPrice()));
+                    if (dish.getPrice() == null) ps.setNull(3, java.sql.Types.NUMERIC);
+                    else ps.setBigDecimal(3, java.math.BigDecimal.valueOf(dish.getPrice()));
 
-                        try (ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) dish.setId(rs.getInt("id"));
-                            else throw new Exception("INSERT n'a pas retourné d'id");
-                        }
+                    ps.setInt(4, dish.getId());
+
+                    int updated = ps.executeUpdate();
+                    if (updated == 0) {
+                        throw new Exception("UPDATE a modifié 0 ligne alors que l'id existe supposément: " + dish.getId());
                     }
                 }
+                return dish;
+
+            } else {
+                // INSERT
+                try (PreparedStatement ps = connection.prepareStatement(insertQuery)) {
+                    ps.setString(1, dish.getName());
+                    ps.setObject(2, dish.getDishtype().name(), java.sql.Types.OTHER);
+
+                    if (dish.getPrice() == null) ps.setNull(3, java.sql.Types.NUMERIC);
+                    else ps.setBigDecimal(3, java.math.BigDecimal.valueOf(dish.getPrice()));
+
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) dish.setId(rs.getInt("id"));
+                        else throw new Exception("INSERT n'a pas retourné d'id");
+                    }
+                }
+                return dish;
             }
-            return dish;
-
-
+        }
     }
+
 
     public List<Dish> findDishByIngredientName(String ingredientName) throws Exception {
         List<Dish> dishes = new ArrayList<>();
@@ -204,22 +226,21 @@ public class DataRetriever {
     }
 
     public void updateDishPrice(int dishId, Double price) throws Exception {
-
-        String sql = "UPDATE dish SET price = ? WHERE id = ?";
+        String sql = "UPDATE dish SET selling_price = ? WHERE id = ?";
 
         try (Connection conn = DbConnection.getDbConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            if (price == null) {
-                ps.setNull(1, Types.NUMERIC);
-            } else {
-                ps.setDouble(1, price);
-            }
+            if (price == null) ps.setNull(1, Types.NUMERIC);
+            else ps.setBigDecimal(1, java.math.BigDecimal.valueOf(price));
 
             ps.setInt(2, dishId);
-            ps.executeUpdate();
+
+            int updated = ps.executeUpdate();
+            if (updated == 0) throw new Exception("Dish id=" + dishId + " introuvable");
         }
     }
+
 
     public List<DishIngredient> findDishIngredientsByDishId(Integer dishId, int limit, int offset) throws Exception {
         List<DishIngredient> out = new ArrayList<>();
