@@ -17,8 +17,8 @@ public class Dish {
                 .sum();
     }
     public Double getGrossMargin(){
-        if (price <= 0) {
-            throw new RuntimeException("Veuillez mettre à jour le prix du plat svp !");
+        if (price == null) {
+          throw new NullPointerException("price is null");
         }
 
         return price - getDishCost();

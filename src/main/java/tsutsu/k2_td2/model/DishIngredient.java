@@ -2,11 +2,11 @@ package tsutsu.k2_td2.model;
 
 
 public class DishIngredient {
-    private Integer id; // optionnel si tu as un id dans dish_ingredient
+    private Integer id;
     private Dish dish;
     private Ingredient ingredient;
     private Double quantityRequired;
-    private UnitType unit; // PCS / KG / L
+    private UnitType unit;
 
     public DishIngredient(Integer id, Dish dish, Ingredient ingredient, Double quantityRequired, UnitType unit) {
         this.id = id;
