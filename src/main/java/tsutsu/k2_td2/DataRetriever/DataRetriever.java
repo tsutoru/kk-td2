@@ -1,12 +1,7 @@
 package tsutsu.k2_td2.DataRetriever;
 
 import tsutsu.k2_td2.DbConnection.DbConnection;
-import tsutsu.k2_td2.model.Dish;
-import tsutsu.k2_td2.model.DishtypeEnum;
-import tsutsu.k2_td2.model.Ingredient;
-import tsutsu.k2_td2.model.CategoryEnum;
-import tsutsu.k2_td2.model.DishIngredient;
-import tsutsu.k2_td2.model.UnitType;
+import tsutsu.k2_td2.model.*;
 
 
 import java.math.BigDecimal;
@@ -286,6 +281,129 @@ public class DataRetriever {
 
         return out;
     }
+    public Ingredient findIngredientById(Integer id) throws Exception {
+
+        String query = "SELECT id, name, price, category FROM ingredient WHERE id = ?";
+
+        try (Connection connection = DbConnection.getDbConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setInt(1, id);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+
+                Ingredient ingredient = new Ingredient(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getBigDecimal("price") == null ? null : rs.getBigDecimal("price").doubleValue(),
+                        CategoryEnum.valueOf(rs.getString("category")),
+                        new ArrayList<>()
+                );
+
+                ingredient.setStockMovementList(findStockMovementsByIngredientId(id));
+                return ingredient;
+            }
+        }
+    }
+    private List<StockMovement> findStockMovementsByIngredientId(Integer ingredientId) throws Exception {
+
+        List<StockMovement> movements = new ArrayList<>();
+
+        String query = """
+        SELECT id, quantity, type, unit, creation_datetime
+        FROM stock_movement
+        WHERE id_ingredient = ?
+        ORDER BY creation_datetime
+    """;
+
+        try (Connection connection = DbConnection.getDbConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
+
+            ps.setInt(1, ingredientId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    movements.add(new StockMovement(
+                            rs.getInt("id"),
+                            ingredientId,
+                            new StockValue(rs.getBigDecimal("quantity").doubleValue(),
+                                    UnitType.valueOf(rs.getString("unit"))),
+                            MovementType.valueOf(rs.getString("type")),
+                            rs.getTimestamp("creation_datetime").toInstant()
+                    ));
+                }
+            }
+        }
+
+        return movements;
+    }
+    public Ingredient saveIngredient(Ingredient ingredient) throws Exception {
+
+        String insertIngredient = """
+        INSERT INTO ingredient (name, price, category)
+        VALUES (?, ?, ?)
+        RETURNING id
+    """;
+
+        String updateIngredient = """
+        UPDATE ingredient
+        SET name = ?, price = ?, category = ?
+        WHERE id = ?
+    """;
+
+        try (Connection connection = DbConnection.getDbConnection()) {
+
+            if (ingredient.getId() == null) {
+                try (PreparedStatement ps = connection.prepareStatement(insertIngredient)) {
+                    ps.setString(1, ingredient.getName());
+                    ps.setBigDecimal(2, BigDecimal.valueOf(ingredient.getPrice()));
+                    ps.setObject(3, ingredient.getCategory().name(), Types.OTHER);
+
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) ingredient.setId(rs.getInt("id"));
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = connection.prepareStatement(updateIngredient)) {
+                    ps.setString(1, ingredient.getName());
+                    ps.setBigDecimal(2, BigDecimal.valueOf(ingredient.getPrice()));
+                    ps.setObject(3, ingredient.getCategory().name(), Types.OTHER);
+                    ps.setInt(4, ingredient.getId());
+                    ps.executeUpdate();
+                }
+            }
+
+            // 🔥 Gestion des mouvements
+            if (ingredient.getStockMovementList() != null) {
+                for (StockMovement m : ingredient.getStockMovementList()) {
+                    saveStockMovement(connection, ingredient.getId(), m);
+                }
+            }
+
+            return findIngredientById(ingredient.getId());
+        }
+    }
+    private void saveStockMovement(Connection connection, Integer ingredientId, StockMovement m) throws Exception {
+
+        String sql = """
+        INSERT INTO stock_movement (id, id_ingredient, quantity, type, unit, creation_datetime)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO NOTHING
+    """;
+
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, m.getId());
+            ps.setInt(2, ingredientId);
+            ps.setBigDecimal(3, BigDecimal.valueOf(m.getValue().getQuantity()));
+            ps.setObject(4, m.getType().name(), Types.OTHER);
+            ps.setObject(5, m.getValue().getUnit().name(), Types.OTHER);
+            ps.setTimestamp(6, Timestamp.from(m.getCreationDatetime()));
+            ps.executeUpdate();
+        }
+    }
+
+
 
 
 
