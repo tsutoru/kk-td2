@@ -24,7 +24,7 @@ public class Ingredient {
     }
 
     public Ingredient(int id, String name, Double price, CategoryEnum category) {
-        // constructeur vide utile pour JDBC mapping
+
     }
 
     public Integer getId() {

@@ -5,10 +5,7 @@ import tsutsu.k2_td2.DbConnection.DbConnection;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import tsutsu.k2_td2.DataRetriever.DataRetriever;
-import tsutsu.k2_td2.model.Dish;
-import tsutsu.k2_td2.model.DishtypeEnum;
-import tsutsu.k2_td2.model.Ingredient;
-import tsutsu.k2_td2.model.CategoryEnum;
+import tsutsu.k2_td2.model.*;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -55,6 +52,21 @@ public class K2Td2Application {
         }
 
 
+        Instant t1 = LocalDateTime.of(2024, 1, 6, 12, 0).toInstant(ZoneOffset.UTC);
+        Instant t2 = LocalDateTime.of(2024, 1, 6, 10, 30).toInstant(ZoneOffset.UTC);
+        Instant t3 = LocalDateTime.of(2024, 1, 6, 13, 30).toInstant(ZoneOffset.UTC);
+
+        System.out.println("=== Available at 12:00 ===");
+        List<RestaurantTable> a1 = dataRetriever.findAvailableTablesAt(t1);
+        a1.forEach(System.out::println);
+
+        System.out.println("=== Available at 10:30 ===");
+        List<RestaurantTable> a2 = dataRetriever.findAvailableTablesAt(t2);
+        a2.forEach(System.out::println);
+
+        System.out.println("=== Available at 13:30 ===");
+        List<RestaurantTable> a3 = dataRetriever.findAvailableTablesAt(t3);
+        a3.forEach(System.out::println);
 
     }
 }

@@ -1,100 +1,56 @@
 package tsutsu.k2_td2.model;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class Dish {
-    private int id;
+    private Integer id;
     private String name;
-    private DishtypeEnum dishtype;
+    private DishtypeEnum dishType;
     private Double price;
-    private List<Ingredient> ingredients;
+    private List<DishIngredient> ingredients = new ArrayList<>();
 
+    public Dish() {}
 
-    public Double getDishCost(){
-        return ingredients == null ? null : ingredients.stream()
-                .mapToDouble(Ingredient::getPrice)
-                .sum();
+    public Dish(List<DishIngredient> ingredients, DishtypeEnum dishType, String name, Double price, Integer id) {
+        this.ingredients = (ingredients != null) ? ingredients : new ArrayList<>();
+        this.dishType = dishType;
+        this.name = name;
+        this.price = price;
+        this.id = id;
     }
-    public Double getGrossMargin(){
-        if (price == null) {
-          throw new NullPointerException("price is null");
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public DishtypeEnum getDishType() { return dishType; }
+    public void setDishType(DishtypeEnum dishType) { this.dishType = dishType; }
+
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
+
+    public List<DishIngredient> getIngredients() { return ingredients; }
+    public void setIngredients(List<DishIngredient> ingredients) { this.ingredients = ingredients; }
+
+    // Coût de revient (stock cost)
+    public double getStockCost() {
+        double cost = 0.0;
+        if (ingredients == null) return 0.0;
+
+        for (DishIngredient di : ingredients) {
+            if (di.getIngredient() != null && di.getIngredient().getPrice() != null) {
+                cost += di.getIngredient().getPrice() * di.getQuantityRequired();
+            }
         }
-
-        return price - getDishCost();
+        return cost;
     }
 
-    public Dish(List<Ingredient> ingredients, DishtypeEnum dishtype, String name,Double price ,int id) {
-        this.ingredients = ingredients;
-        this.dishtype = dishtype;
-        this.name = name;
-        this.price = price;
-        this.id = id;
-    }
-
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price;
-    }
-
-    public DishtypeEnum getDishtype() {
-        return dishtype;
-    }
-
-    public void setDishtype(DishtypeEnum dishtype) {
-        this.dishtype = dishtype;
-    }
-
-    public List<Ingredient> getIngredients() {
-        return ingredients;
-    }
-
-    public void setIngredients(List<Ingredient> ingredients) {
-        this.ingredients = ingredients;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Dish dish = (Dish) o;
-        return id == dish.id;
-    }
-
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, dishtype, ingredients);
-    }
-
-    @Override
-    public String toString() {
-        return "Dish{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", dishtype=" + dishtype +
-                ", price=" + price +
-                ", ingredients=" + ingredients +
-                '}';
+    // Marge brute
+    public double getGrossMargin() {
+        if (price == null) return 0.0;
+        return price - getStockCost();
     }
 }
