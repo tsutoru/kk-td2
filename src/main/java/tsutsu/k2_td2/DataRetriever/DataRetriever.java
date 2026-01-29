@@ -8,6 +8,7 @@ import tsutsu.k2_td2.model.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -699,20 +700,19 @@ public class DataRetriever {
     }
 
 
-    public List<RestaurantTable> findAvailableTablesAt(Instant t) throws Exception {
+    public List<RestaurantTable> findAvailableTablesAt(LocalDateTime t) throws Exception {
+
         String sql = """
         SELECT rt.id, rt.label, rt.seats
         FROM restaurant_table rt
         WHERE NOT EXISTS (
-          SELECT 1
-          FROM "order" o
+          SELECT 1 FROM "order" o
           WHERE o.id_table = rt.id
             AND o.start_datetime <= ?
             AND ? < o.end_datetime
         )
         AND NOT EXISTS (
-          SELECT 1
-          FROM table_unavailability u
+          SELECT 1 FROM table_unavailability u
           WHERE u.id_table = rt.id
             AND u.start_datetime <= ?
             AND ? < u.end_datetime
@@ -720,7 +720,7 @@ public class DataRetriever {
         ORDER BY rt.id
     """;
 
-        Timestamp ts = Timestamp.from(t);
+        Timestamp ts = Timestamp.valueOf(t);
         List<RestaurantTable> out = new ArrayList<>();
 
         try (Connection c = DbConnection.getDbConnection();

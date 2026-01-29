@@ -3,13 +3,11 @@ package tsutsu.k2_td2;
 import tsutsu.k2_td2.DbConnection.DbConnection;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
+import java.sql.*;
+
 import tsutsu.k2_td2.DataRetriever.DataRetriever;
 import tsutsu.k2_td2.model.*;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -52,20 +50,24 @@ public class K2Td2Application {
         }
 
 
-        Instant t1 = LocalDateTime.of(2024, 1, 6, 12, 0).toInstant(ZoneOffset.UTC);
-        Instant t2 = LocalDateTime.of(2024, 1, 6, 10, 30).toInstant(ZoneOffset.UTC);
-        Instant t3 = LocalDateTime.of(2024, 1, 6, 13, 30).toInstant(ZoneOffset.UTC);
+        LocalDateTime ldt = LocalDateTime.of(2024, 1, 6, 12, 0);
+        Timestamp ts = Timestamp.valueOf(ldt);
+        LocalDateTime ldt2 = LocalDateTime.of(2024, 1, 6, 10, 30);
+        Timestamp ts2 = Timestamp.valueOf(ldt);
+        LocalDateTime ldt3 = LocalDateTime.of(2024, 1, 6, 13, 30);
+        Timestamp ts3 = Timestamp.valueOf(ldt);
+
 
         System.out.println("=== Available at 12:00 ===");
-        List<RestaurantTable> a1 = dataRetriever.findAvailableTablesAt(t1);
+        List<RestaurantTable> a1 = dataRetriever.findAvailableTablesAt((ldt));
         a1.forEach(System.out::println);
 
         System.out.println("=== Available at 10:30 ===");
-        List<RestaurantTable> a2 = dataRetriever.findAvailableTablesAt(t2);
+        List<RestaurantTable> a2 = dataRetriever.findAvailableTablesAt(ldt2);
         a2.forEach(System.out::println);
 
         System.out.println("=== Available at 13:30 ===");
-        List<RestaurantTable> a3 = dataRetriever.findAvailableTablesAt(t3);
+        List<RestaurantTable> a3 = dataRetriever.findAvailableTablesAt(ldt3);
         a3.forEach(System.out::println);
 
     }
